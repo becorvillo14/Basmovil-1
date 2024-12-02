@@ -8,39 +8,43 @@
 
 Servo motor;
 
+
 uint8_t peerMacAddress[] = {0xE0, 0x5A, 0x1B, 0x77, 0x1A, 0xCC};  
 
 // Definición mac Esp
 // Este comando está escrito en esta notacion poque son bits hexadecimales, no binarios,
 
 
+typedef struct{
+  int velocidad;
+} Data;
+Data data;
+
+
 // Esta función es lo que se conoce como callback, algo parecido a lo que vimos del watchdog en automatica
 // Basicamente es una función que se declara y se ejecuta cuando pasa x cosa
-void onDataReceived(const esp_now_recv_info *info, const uint8_t *data, int len) {
+void onDataReceived(const esp_now_recv_info *info, const uint8_t *dataRcv, int len) {
   // Trigge de que se ha recibido datos
-  char incomingString[len + 1];  // Allocate memory for the received string
-  memcpy(incomingString, data, len);
-  incomingString[len] = '\0';    // Null-terminate the string
-  String mensaje = String(incomingString);
-
-
-  if(mensaje == "0"){
-    Serial.print("Atras");
-    motor.write(1000);
+  // conversion uint8-t -> char* -> String -> int
+  memcpy(&data,dataRcv,sizeof(data));
+  Serial.println("pretty please:" + String(data.velocidad));
+  int mensajeInt = data.velocidad;
+  int motorSpeed;
+// LOGICA COMUICACION ->
+  
+  if (mensajeInt > 2048) { // Movimiento hacia adelante
+    motorSpeed = map(mensajeInt, 2048, 4095, 1500, 2000); // De 1500 a 2000
+  } else if (mensajeInt <= 2048) { // Movimiento hacia atrás
+    motorSpeed = map(mensajeInt, 2048, 0, 1500, 1000); // De 1500 a 1000
+  } else { // Zona muerta (joystick en posición central)
+    motorSpeed = 1500; // Neutral
   }
-  else if(mensaje == "1"){
-    Serial.print("quieto");
-    motor.write(1500);
-  }
-  else if(mensaje == "2"){
-    Serial.print("Adelante");
-    motor.write(2000);
-  }
+  
+  motor.writeMicroseconds(motorSpeed); // Enviar señal PWM al ESC
+  delay(20); // Pequeño retardo para estabilizar
+  
+// <- 
 
-  Serial.print("Data received: " + mensaje);
-  const char *replyMessage = "Velocidad ajustada";
-  esp_now_send(peerMacAddress, (uint8_t *)replyMessage, strlen(replyMessage));
-  // Este comando tiene de parametros (mac receptor, mensaje en uint8, longitud del m
 
 }
 
@@ -90,6 +94,5 @@ void setup() {
 }
 
 void loop() {
-
 }
 
