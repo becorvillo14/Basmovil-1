@@ -3,68 +3,31 @@
 #include <ESP32Servo.h> 
 #include <stdlib.h> // Required for itoa
 
-// RECEPTOR
 
+// EMISOR
 
 Servo motor;
-
-
-uint8_t peerMacAddress[] = {0xE0, 0x5A, 0x1B, 0x77, 0x1A, 0xCC};  
 
 // Definición mac Esp
 // Este comando está escrito en esta notacion poque son bits hexadecimales, no binarios,
 
-
-typedef struct{
-  int velocidad;
-} Data;
-Data data;
-
+uint8_t peerMacAddress[] = {0xE0, 0x5A, 0x1B, 0x77, 0x3B, 0xC4};  // 1
 
 // Esta función es lo que se conoce como callback, algo parecido a lo que vimos del watchdog en automatica
 // Basicamente es una función que se declara y se ejecuta cuando pasa x cosa
-void onDataReceived(const esp_now_recv_info *info, const uint8_t *dataRcv, int len) {
-  // Trigge de que se ha recibido datos
-  // conversion uint8-t -> char* -> String -> int
-  memcpy(&data,dataRcv,sizeof(data));
-  Serial.println("pretty please:" + String(data.velocidad));
-  int mensajeInt = data.velocidad;
-  int motorSpeed;
-// LOGICA COMUICACION ->
-  
-  if (mensajeInt > 2048) { // Movimiento hacia adelante
-    motorSpeed = map(mensajeInt, 2048, 4095, 1500, 2000); // De 1500 a 2000
-  } else if (mensajeInt <= 2048) { // Movimiento hacia atrás
-    motorSpeed = map(mensajeInt, 2048, 0, 1500, 1000); // De 1500 a 1000
-  } else { // Zona muerta (joystick en posición central)
-    motorSpeed = 1500; // Neutral
-  }
-  
-  motor.writeMicroseconds(motorSpeed); // Enviar señal PWM al ESC
-  delay(20); // Pequeño retardo para estabilizar
-  
-// <- 
-
-
+void onDataReceived(const esp_now_recv_info *info, const uint8_t *data, int len) {
+  int a = 1;
 }
 
-
 void setup() {
+
   Serial.begin(115200);
-  randomSeed(analogRead(0));  
   motor.attach(5);
-  motor.write(1500);
-  WiFi.mode(WIFI_STA);
-  delay(300);
-  Serial.println(WiFi.macAddress());
-
-
   // Para sabe la Mac de la ESP, ejecuta este comando
 
-  
-  // La esp puede estar en varios modos basicamente puede ser un router o un intermediario
-  // de cosas de tcp pero lo ponemos y te olvidas
-
+  WiFi.mode(WIFI_STA);
+  delay(50);
+  Serial.println(WiFi.macAddress());
 
   // se corre el comando y si no hay problemas se tira
   if (esp_now_init() != ESP_OK) {
@@ -93,6 +56,19 @@ void setup() {
   Serial.println("Setup finalizado");
 }
 
+int pin_analog = 34;
+
 void loop() {
+  // creo q se puede declarar como String q es más comodo pero por ahora tiramos con char*
+  int medicionPote = analogRead(pin_analog);
+  Serial.println("medicion Pote:" + String(medicionPote));
+  const char* message1 = String(analogRead(pin_analog)).c_str();
+  Serial.println("message1:" + String(message1));
+  const char* message2 = "prueba";
+  Serial.println("message1:" + String(message1));
+  esp_now_send(peerMacAddress, (uint8_t *)message1, strlen(message1) + 1);
+  esp_now_send(peerMacAddress, (uint8_t *)message2, strlen(message1) + 1);
+  Serial.println("Mensaje enviado " + String(message1));
 }
+
 
