@@ -1,0 +1,164 @@
+//Conexiones
+//Emisor (ESP32 conectado al joystick de dirección):
+
+//Joystick Dirección:
+//VCC: Conéctalo a 3.3V del ESP32.
+//GND: Conéctalo a GND del ESP32.
+//Eje X (salida): Conéctalo al pin 35 del ESP32.
+
+//Joystick Velocidad:
+//VCC: Conéctalo a 3.3V del ESP32.
+//GND: Conéctalo a GND del ESP32.
+//Eje X (salida): Conéctalo al pin 34 del ESP32.
+
+
+
+//Zona muerta del joystick: Si notas que el servomotor se mueve ligeramente cuando el joystick está en posición central, 
+//puedes implementar una "zona muerta". Por ejemplo:
+
+
+//if (valorJoystickX > 2000 && valorJoystickX < 2200) {
+//  anguloServo = 90; // Mantén el servo en posición central
+//} else {
+//  anguloServo = map(valorJoystickX, 0, 4095, 0, 180);
+//}
+
+
+
+
+
+#include <esp_now.h>
+#include <WiFi.h>
+#include <ESP32Servo.h> 
+#include <stdlib.h> // Required for itoa
+
+
+// EMISOR
+Servo motor; 
+
+int pinJoystickX = 35; // Pin donde conectamos el eje X del joystick
+int valorJoystickX;    // Valor leído del joystick
+int anguloServo;       // Ángulo calculado para el servomotor
+
+// Definición mac Esp
+// Este comando está escrito en esta notacion poque son bits hexadecimales, no binarios,
+
+uint8_t peerMacAddress[] = {0xE0, 0x5A, 0x1B, 0x77, 0x3B, 0xC4};  // 1
+
+// Estructura para enviar datos de dirección
+typedef struct {
+  int angulo; // Ángulo del servomotor
+} Data;
+Data data;
+
+
+// Esta función es lo que se conoce como callback, algo parecido a lo que vimos del watchdog en automatica
+// Basicamente es una función que se declara y se ejecuta cuando pasa x cosa
+void onDataReceived(const esp_now_recv_info *info, const uint8_t *data, int len) {
+  int a = 1;
+}
+
+void setup() {
+  
+  //SETUP DE DIRECCIÓN
+  Serial.begin(115200);
+
+  // Inicializamos Wi-Fi en modo estación
+  WiFi.mode(WIFI_STA);
+  Serial.println("Configurando ESP-NOW...");
+
+  // Inicializamos ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error al inicializar ESP-NOW");
+    return;
+  }
+
+  // Configuramos el receptor
+  esp_now_peer_info_t peerInfo;
+  memcpy(peerInfo.peer_addr, peerMacAddress, 6);
+  peerInfo.channel = 0; // Canal por defecto
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Error al añadir al receptor");
+    return;
+  }
+
+  Serial.println("Emisor listo para enviar.");
+
+//SETUP DE MOTOR:
+
+  Serial.begin(115200);
+  motor.attach(5);
+  // Para sabe la Mac de la ESP, ejecuta este comando
+
+  WiFi.mode(WIFI_STA);
+  delay(50);
+  Serial.println(WiFi.macAddress());
+
+  // se corre el comando y si no hay problemas se tira
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW initialization failed!");
+    return;
+  }
+  else{
+    Serial.println("ESP-NOW started");
+  }
+
+  // En este punto se declara el callback que se activará cuando se reciban mensajes
+  // Es un metodo que encontré en la api peo debería funcionar
+  esp_now_register_recv_cb(onDataReceived);
+
+
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+  Serial.println("Setup finalizado");
+}
+
+int pin_analog = 34;
+
+void loop() {
+  //LOOP DIRECCIÓN:
+  
+  valorJoystickX = analogRead(pinJoystickX); // Leer valor del eje X del joystick
+  Serial.println(valorJoystickX);
+
+  // Mapeamos el valor del joystick al rango del servomotor (0° a 180°)
+  anguloServo = map(valorJoystickX, 0, 4095, 0, 180);
+
+  // Preparamos los datos para enviar
+  data.angulo = anguloServo;
+
+  // Enviamos los datos al receptor
+  esp_err_t result = esp_now_send(peerMacAddress, (uint8_t *)&data, sizeof(data));
+  if (result == ESP_OK) {
+    Serial.println("Datos enviados: " + String(data.angulo));
+  } else {
+    Serial.println("Error al enviar datos");
+  }
+
+  delay(50); // Retardo para estabilizar
+
+
+
+
+  //LOOP MOTOR:
+
+
+  // creo q se puede declarar como String q es más comodo pero por ahora tiramos con char*
+  int medicionPote = analogRead(pin_analog);
+  Serial.println("medicion Pote:" + String(medicionPote));
+  const char* message1 = String(analogRead(pin_analog)).c_str();
+  Serial.println("message1:" + String(message1));
+  const char* message2 = "prueba";
+  Serial.println("message1:" + String(message1));
+  esp_now_send(peerMacAddress, (uint8_t *)message1, strlen(message1) + 1);
+  esp_now_send(peerMacAddress, (uint8_t *)message2, strlen(message1) + 1);
+  Serial.println("Mensaje enviado " + String(message1));
+}
+
+
+
