@@ -1,0 +1,40 @@
+#include <ESP32Servo.h>  // Usa la librería específica para ESP32
+
+#define PIN_ADC 34
+#define PIN_BJT 26  
+
+Servo motor;  // No cambia el nombre del objeto Servo
+int poten;
+int acel;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(PIN_BJT, OUTPUT);
+  digitalWrite(PIN_BJT, HIGH);
+  motor.attach(4);  // Asegúrate de usar un pin PWM de ESP32 (GPIO 2, 4, 12, 13, 14, 15, 27, 32, 33)
+}
+
+void loop() {
+  int lecturaADC = analogRead(PIN_ADC);
+  float voltaje = (lecturaADC / 4095.0) * 3.3;
+
+  Serial.print("Voltaje leído: ");
+  Serial.println(voltaje);
+
+  if (voltaje < 8.0) {
+    Serial.println(" Voltaje bajo (< 3V) -> Apagando transistor.");
+    digitalWrite(PIN_BJT, LOW);
+  } else {
+    Serial.println("Voltaje normal -> Transistor encendido");
+    digitalWrite(PIN_BJT, HIGH);
+  }
+
+  delay(1000);
+
+  poten = analogRead(32);
+  acel = map(poten, 0, 4095, 0, 180);  // ESP32 usa 12 bits en ADC, por eso 0-4095
+  Serial.println(acel);
+
+  motor.write(acel); // Controla el servo
+
+}
