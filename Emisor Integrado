@@ -1,0 +1,137 @@
+//Conexiones
+//Emisor (ESP32 conectado al joystick de dirección):
+
+//Joystick Dirección:
+//VCC: Conéctalo a 3.3V del ESP32.
+//GND: Conéctalo a GND del ESP32.
+//Eje X (salida): Conéctalo al pin 35 del ESP32.
+
+//Joystick Velocidad:
+//VCC: Conéctalo a 3.3V del ESP32.
+//GND: Conéctalo a GND del ESP32.
+//Eje Y (salida): Conéctalo al pin 32 del ESP32.
+
+#include <esp_now.h>
+#include <WiFi.h>
+#include <ESP32Servo.h> 
+#include <stdlib.h> // Required for itoa (yo creo que esta ya la podemos quitar pero no toco x si aca)
+
+
+// EMISOR
+Servo motor; 
+
+int pinJoystickX = 35; // Pin donde conectamos el eje X del joystick
+int valorJoystickX;    // Valor leído del joystick
+int pinJoystickY = 32;
+int valorJoystickY;
+int anguloServo;       // Ángulo calculado para el servomotor
+int velocidadPWM;
+
+//Dirección MAC del receptor
+uint8_t peerMacAddress[] = {0xE0, 0x5A, 0x1B, 0x77, 0x3B, 0xC4};  // 1
+
+// Estructura para enviar datos de dirección
+typedef struct {
+  int angulo; // Ángulo del servomotor
+  int velocidad;
+} Data;
+Data data;
+
+void setup() {
+                            //INICIALIZAMOS LA COMUNICACIÓN ENTRE LAS ESP
+
+
+
+  Serial.begin(115200);
+
+  // Inicializamos Wi-Fi en modo estación
+  WiFi.mode(WIFI_STA);
+  Serial.println("Configurando ESP-NOW...");
+
+  // Inicializamos ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error al inicializar ESP-NOW");
+    return;
+  }
+
+  // Configuramos el receptor
+  esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(peerInfo)); // Limpia lo que haya ya en el receptor
+  memcpy(peerInfo.peer_addr, peerMacAddress, 6);
+  peerInfo.channel = 0; // Canal por defecto
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Error al añadir al receptor");
+    return;
+  }
+
+  Serial.println("Emisor listo para enviar.");
+
+  // Para sabe la Mac de la ESP, ejecuta este comando
+  delay(50);
+  Serial.println(WiFi.macAddress());
+
+}
+
+
+void loop() {
+
+
+  //Leer valores:
+  
+  valorJoystickX = analogRead(pinJoystickX); // Leer valor del eje X del joystick
+  Serial.print("Eje X: ");
+  Serial.println(valorJoystickX);
+  valorJoystickY = analogRead(pinJoystickY); // Leer valor del eje X del joystick
+  Serial.print("Eje Y: ");
+  Serial.println(valorJoystickY);
+
+  // Mapeamos el valor del joystick al rango del servomotor (0° a 180°)
+ //Corrigiendo antes la zona muerta:
+  if (valorJoystickX > 1850 && valorJoystickX < 1870) {
+  anguloServo = 90; // Mantén el servo en posición central
+} else {
+  anguloServo = map(valorJoystickX, 0, 4095, 0, 180);
+}
+
+//Mapeamos el valor de la velocidad:
+
+  if(valorJoystickY>2910 && valorJoystickY< 2940){
+    velocidadPWM=1500;
+  }
+  else if (valorJoystickY < 2048) { // Movimiento hacia adelante
+    velocidadPWM = map(valorJoystickY, 2048, 0, 1500, 2000); // De 1500 a 2000
+  } else if (valorJoystickY >= 2048) { // Movimiento hacia atrás
+    velocidadPWM = map(valorJoystickY, 2048, 4095, 1500, 1000); // De 1500 a 1000
+  } 
+
+
+  // Preparamos los datos para enviar
+  data.angulo = anguloServo;
+  data.velocidad = velocidadPWM;
+
+
+  // Enviamos los datos al receptor
+  esp_err_t result = esp_now_send(peerMacAddress, (uint8_t *)&data, sizeof(data));
+  
+  //Mostrar datos por Serial:
+  Serial.print("Ángulo enviado: ");
+  Serial.print(data.angulo);
+  Serial.print(" | Velocidad enviada: ");
+  Serial.println(data.velocidad);
+
+  
+  
+  if (result == ESP_OK) {
+    Serial.println("Datos enviados correctamente.");
+  } else {
+    Serial.println("Error al enviar datos");
+  }
+
+  delay(200); // Retardo para estabilizar
+
+}
+
+
+
