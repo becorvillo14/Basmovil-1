@@ -1,0 +1,18 @@
+#include <Servo.h> //El control de la ESC es por PWM
+
+Servo motor;
+int poten; //La velocidad la controlamos con un potenciomero en este código
+int acel; //Variable para almacenar el mapeo
+
+void setup() {
+  motor.attach(3);
+  Serial.begin(9600);
+}
+
+void loop() {
+  poten = analogRead(A0);
+  //Serial.println(poten);
+  acel = map(poten,0,1023,1000,2000);
+  Serial.println (acel);
+  motor.write(acel); //Mete la aceleración por PWM al la esc del motor
+}
