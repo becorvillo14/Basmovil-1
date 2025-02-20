@@ -21,6 +21,8 @@ typedef struct{
 Data data;
 
 
+//hhhh
+
 // Esta función es lo que se conoce como callback, algo parecido a lo que vimos del watchdog en automatica
 // Basicamente es una función que se declara y se ejecuta cuando pasa x cosa
 void onDataReceived(const esp_now_recv_info *info, const uint8_t *dataRcv, int len) {
